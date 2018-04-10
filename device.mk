@@ -56,6 +56,7 @@ PRODUCT_COPY_FILES += \
 # Boot animation
 TARGET_SCREEN_HEIGHT := 1920
 TARGET_SCREEN_WIDTH := 1080
+TARGET_BOOTANIMATION_HALF_RES := true
 
 $(call inherit-product, frameworks/native/build/phone-xxxhdpi-3072-hwui-memory.mk)
 
@@ -158,9 +159,6 @@ PRODUCT_PACKAGES += \
 # Fingerprint sensor
 PRODUCT_PACKAGES += \
     android.hardware.biometrics.fingerprint@2.0-service
-
-PRODUCT_PACKAGES += \
-    fingerprint.msm8994
 
 # For config.fs
 PRODUCT_PACKAGES += \
