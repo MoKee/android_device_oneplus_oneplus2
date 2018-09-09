@@ -177,6 +177,10 @@ PRODUCT_PACKAGES += \
     sap.conf \
     xtwifi.conf
 
+# HIDL
+PRODUCT_PACKAGES += \
+    android.hidl.manager@1.0-java
+
 # IPv6
 PRODUCT_PACKAGES += \
     ebtables \
@@ -206,10 +210,7 @@ PRODUCT_PACKAGES += \
 
 # Lights
 PRODUCT_PACKAGES += \
-    android.hardware.light@2.0-impl
-
-PRODUCT_PACKAGES += \
-    lights.msm8994
+    android.hardware.light@2.0-service.oneplus2
 
 # LiveDisplay
 PRODUCT_PACKAGES += \
