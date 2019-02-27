@@ -250,19 +250,18 @@ int QCamera2Factory::getCameraInfo(int camera_id, struct camera_info *info)
         return NO_INIT;
     }
 
-    if ( mHalDescriptors[camera_id].device_version == CAMERA_DEVICE_API_VERSION_3_0 ) {
-        rc = QCamera3HardwareInterface::getCamInfo(mHalDescriptors[camera_id].cameraId, info);
-    } else if (mHalDescriptors[camera_id].device_version == CAMERA_DEVICE_API_VERSION_1_0) {
-        rc = QCamera2HardwareInterface::getCapabilities(mHalDescriptors[camera_id].cameraId, info);
-    } else {
-        ALOGE("%s: Device version for camera id %d invalid %d",
-              __func__,
-              camera_id,
-              mHalDescriptors[camera_id].device_version);
-        return BAD_VALUE;
+    ALOGI("Camera id %d API version %d",
+            camera_id, mHalDescriptors[camera_id].device_version);
+
+    // Need ANDROID_FLASH_INFO_AVAILABLE property for flashlight widget to
+    // work and so get the static data regardless of HAL version
+    rc = QCamera3HardwareInterface::getCamInfo(
+            mHalDescriptors[camera_id].cameraId, info);
+    if (mHalDescriptors[camera_id].device_version ==
+            CAMERA_DEVICE_API_VERSION_1_0) {
+        info->device_version = CAMERA_DEVICE_API_VERSION_1_0;
     }
 
-    ALOGV("%s: X", __func__);
     return rc;
 }
 
@@ -379,7 +378,7 @@ int QCamera2Factory::camera_device_open(
 }
 
 struct hw_module_methods_t QCamera2Factory::mModuleMethods = {
-    open: QCamera2Factory::camera_device_open,
+    .open = QCamera2Factory::camera_device_open,
 };
 
 /*===========================================================================
@@ -462,7 +461,7 @@ int QCamera2Factory::setTorchMode(const char* camera_id, bool on)
     } else if (on) {
         cameraIdInt = static_cast<int>(cameraIdLong);
         retVal = flash.initFlash(cameraIdInt);
-        
+
         if (retVal == 0) {
             retVal = flash.setFlashMode(cameraIdInt, on);
             if ((retVal == 0) && (mCallbacks != NULL)) {
@@ -477,7 +476,7 @@ int QCamera2Factory::setTorchMode(const char* camera_id, bool on)
     } else {
         cameraIdInt = static_cast<int>(cameraIdLong);
         retVal = flash.setFlashMode(cameraIdInt, on);
-        
+
         if (retVal == 0) {
             retVal = flash.deinitFlash(cameraIdInt);
             if ((retVal == 0) && (mCallbacks != NULL)) {
@@ -490,6 +489,7 @@ int QCamera2Factory::setTorchMode(const char* camera_id, bool on)
             retVal = 0;
         }
     }
+
     return retVal;
 }
 

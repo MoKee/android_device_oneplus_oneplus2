@@ -990,7 +990,7 @@ QCameraStreamMemory::QCameraStreamMemory(camera_request_memory memory,
 	void* cbCookie,
         bool cached,
         QCameraMemoryPool *pool,
-        cam_stream_type_t streamType, cam_stream_buf_type bufType)
+        cam_stream_type_t streamType, cam_stream_buf_type bufType __unused)
     :QCameraMemory(cached, pool, streamType),
      mGetMemory(memory),
      mCallbackCookie(cbCookie)
@@ -1901,7 +1901,7 @@ int QCameraGrallocMemory::allocate(uint8_t count, size_t /*size*/,
                     (size_t)mPrivateHandle[cnt]->size,
                     1,
                     mCallbackCookie);
-        CDBG_HIGH("%s: idx = %d, fd = %d, size = %d, offset = %d",
+        CDBG("%s: idx = %d, fd = %d, size = %d, offset = %d",
               __func__, cnt, mPrivateHandle[cnt]->fd,
               mPrivateHandle[cnt]->size,
               mPrivateHandle[cnt]->offset);

@@ -387,6 +387,7 @@ typedef struct{
       the decimal representation of a percentage
       ex: 10% margin = 0.1 */
     float supported_is_type_margins[IS_TYPE_MAX];
+
     /* Max cpp batch size */
     uint8_t max_batch_bufs_supported;
 #ifdef VENDOR_EDIT
@@ -772,7 +773,7 @@ typedef struct {
     INCLUDE(CAM_INTF_PARM_FLIP,                         int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_RATIO,                        int32_t,                     1);
     INCLUDE(CAM_INTF_META_URGENT_STREAM_ID,             cam_stream_ID_t,             1);
-    INCLUDE(CAM_INTF_META_BF_STATS,                         cam_af_stats_info_t,         1);
+    INCLUDE(CAM_INTF_META_BF_STATS,                     cam_af_stats_info_t,         1);
 } metadata_data_t;
 
 /* Update clear_metadata_buffer() function when a new is_xxx_valid is added to

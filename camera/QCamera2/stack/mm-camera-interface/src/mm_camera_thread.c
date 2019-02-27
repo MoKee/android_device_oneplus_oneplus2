@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -508,6 +508,7 @@ int32_t mm_camera_poll_thread_launch(mm_camera_poll_thread_t * poll_cb,
     for (i = 0; i < cnt; i++) {
         poll_cb->poll_entries[i].fd = -1;
     }
+    //Initialize pipe fds
     poll_cb->pfds[0] = -1;
     poll_cb->pfds[1] = -1;
     rc = pipe(poll_cb->pfds);
@@ -532,7 +533,7 @@ int32_t mm_camera_poll_thread_launch(mm_camera_poll_thread_t * poll_cb,
     if(!poll_cb->status) {
         pthread_cond_wait(&poll_cb->cond_v, &poll_cb->mutex);
     }
-    if (!poll_cb->threadName) {
+    if (!strlen(poll_cb->threadName)) {
         pthread_setname_np(poll_cb->pid, "CAM_poll");
     } else {
         pthread_setname_np(poll_cb->pid, poll_cb->threadName);
@@ -637,7 +638,7 @@ int32_t mm_camera_cmd_thread_launch(mm_camera_cmd_thread_t * cmd_thread,
                    mm_camera_cmd_thread,
                    (void *)cmd_thread);
 
-    if (!cmd_thread->threadName) {
+    if (!strlen(cmd_thread->threadName)) {
         pthread_setname_np(cmd_thread->cmd_pid, "CAM_launch");
     } else {
         pthread_setname_np(cmd_thread->cmd_pid, cmd_thread->threadName);

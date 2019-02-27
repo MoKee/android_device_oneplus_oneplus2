@@ -1953,17 +1953,17 @@ int32_t QCameraParameters::setPreviewFpsRange(const QCameraParameters& params)
             goto end;
         }
     }
-	#ifdef VENDOR_EDIT
+#ifdef VENDOR_EDIT
     for(size_t i = 0; i < m_pCapability->hal3_fps_ranges_tbl_cnt; i++) {
         // if the value is in the supported list
         if (minFps >= m_pCapability->hal3_fps_ranges_tbl[i].min_fps * 1000 &&
                 maxFps <= m_pCapability->hal3_fps_ranges_tbl[i].max_fps * 1000) {
-    #else
+#else
     for(size_t i = 0; i < m_pCapability->fps_ranges_tbl_cnt; i++) {
         // if the value is in the supported list
         if (minFps >= m_pCapability->fps_ranges_tbl[i].min_fps * 1000 &&
                 maxFps <= m_pCapability->fps_ranges_tbl[i].max_fps * 1000) {
-	#endif
+#endif
             found = true;
             CDBG_HIGH("%s: FPS i=%d : minFps = %d, maxFps = %d"
                     " vidMinFps = %d, vidMaxFps = %d",
@@ -2020,15 +2020,8 @@ bool QCameraParameters::UpdateHFRFrameRate(const QCameraParameters& params)
     CDBG_HIGH("%s: Requested params - : minFps = %d, maxFps = %d ",
                 __func__, parm_minfps, parm_maxfps);
 
-    const char *hfrStr;
+    const char *hfrStr = params.get(KEY_QC_VIDEO_HIGH_FRAME_RATE);
     const char *hsrStr = params.get(KEY_QC_VIDEO_HIGH_SPEED_RECORDING);
-
-    // Set HFR for OnePlus Camera app (slow-motion)
-    if (parm_minfps == 120000 && parm_maxfps == 120000) {
-        hfrStr = "120";
-    } else {
-        hfrStr = params.get(KEY_QC_VIDEO_HIGH_FRAME_RATE);
-    }
 
     const char *prev_hfrStr = CameraParameters::get(KEY_QC_VIDEO_HIGH_FRAME_RATE);
     const char *prev_hsrStr = CameraParameters::get(KEY_QC_VIDEO_HIGH_SPEED_RECORDING);
@@ -2149,14 +2142,6 @@ int32_t QCameraParameters::setPreviewFrameRate(const QCameraParameters& params)
 {
     const char *str = params.get(KEY_PREVIEW_FRAME_RATE);
     const char *prev_str = get(KEY_PREVIEW_FRAME_RATE);
-    int width, height;
-
-    // Force better preview size for WeChat
-    if (!strcmp(str, "15")) {
-        params.getPreviewSize(&width, &height);
-        if (width == 320 && height == 240)
-            CameraParameters::setPreviewSize(640, 480);
-    }
 
     if ( str ) {
         if ( prev_str &&
@@ -2945,7 +2930,7 @@ int32_t QCameraParameters::setRotation(const QCameraParameters& params)
     int32_t rotation = params.getInt(KEY_ROTATION);
     if (rotation != -1) {
         if (rotation == 0 || rotation == 90 ||
-            rotation == 180 || rotation == 270) {       
+            rotation == 180 || rotation == 270) {
             set(KEY_ROTATION, rotation);
 
             ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_META_JPEG_ORIENTATION,
@@ -4805,8 +4790,9 @@ int32_t QCameraParameters::initDefaultParameters()
     //set default jpeg quality and thumbnail quality
     set(KEY_JPEG_QUALITY, 85);
     set(KEY_JPEG_THUMBNAIL_QUALITY, 85);
-#ifdef VENDOR_EDIT
+
     // Set FPS ranges
+#ifdef VENDOR_EDIT
     if (m_pCapability->hal3_fps_ranges_tbl_cnt > 0 &&
         m_pCapability->hal3_fps_ranges_tbl_cnt <= MAX_SIZES_CNT) {
         int default_fps_index = 0;
@@ -5146,7 +5132,7 @@ int32_t QCameraParameters::initDefaultParameters()
             m_pCapability->hfr_tbl,
             m_pCapability->hfr_tbl_cnt);
     set(KEY_QC_SUPPORTED_HFR_SIZES, hfrSizeValues.string());
-    CDBG("HFR values %s HFR Sizes = %d", hfrValues.string(), hfrSizeValues.string());
+    CDBG("HFR values %s HFR Sizes = %s", hfrValues.string(), hfrSizeValues.string());
     setHighFrameRate(CAM_HFR_MODE_OFF);
 
     // Set Focus algorithms
@@ -5259,12 +5245,11 @@ int32_t QCameraParameters::initDefaultParameters()
     if (!m_bHDRModeSensor) {
         hdrNeed1xValues = createValuesStringFromMap(TRUE_FALSE_MODES_MAP,
                 PARAM_MAP_SIZE(TRUE_FALSE_MODES_MAP));
-        setHDRNeed1x(VALUE_TRUE);
     } else {
         hdrNeed1xValues.append(VALUE_FALSE);
-        setHDRNeed1x(VALUE_FALSE);
     }
     set(KEY_QC_SUPPORTED_HDR_NEED_1X, hdrNeed1xValues);
+    setHDRNeed1x(VALUE_FALSE);
 
     //Set True Portrait
     if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_TRUEPORTRAIT) > 0) {
@@ -5338,7 +5323,6 @@ int32_t QCameraParameters::initDefaultParameters()
     set(KEY_QC_SUPPORTED_SCENE_DETECT, onOffValues);
     setSceneDetect(VALUE_OFF);
     m_bHDREnabled = false;
-    m_bHDR1xFrameEnabled = true;
 
     m_bHDRThumbnailProcessNeeded = false;
     m_bHDR1xExtraBufferNeeded = true;
@@ -5955,7 +5939,7 @@ int32_t  QCameraParameters::setFocusPosition(const char *typeStr, const char *po
         }
     }
 
-    ALOGE("%s, invalid params, type:%d, pos: %d", __func__, type, pos);
+    ALOGE("%s, invalid params, type:%d, pos: %f", __func__, type, pos);
     return BAD_VALUE;
 }
 
@@ -6350,17 +6334,15 @@ int32_t  QCameraParameters::setISOValue(const char *isoValue)
         if (value != NAME_NOT_FOUND) {
             CDBG_HIGH("%s: Setting ISO value %s", __func__, isoValue);
             updateParamEntry(KEY_QC_ISO_MODE, isoValue);
-	   if(!strcmp(isoValue, "ISO6400")){
-	       CDBG_HIGH("%s:%d ISO6400, will set iso value to 6400", __func__, __LINE__);
-	       value = 6400;
+            if (!strcmp(isoValue, "ISO6400")) {
+                CDBG_HIGH("%s:%d ISO6400, will set iso value to 6400", __func__, __LINE__);
+                value = 6400;
             }
             if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_ISO, value)) {
                 return BAD_VALUE;
             }
             return NO_ERROR;
-        }
-#ifdef VENDOR_EDIT
-        else {
+        } else {
             int continuous_iso = 100;
             if (!strcmp(isoValue, "ISO125"))
               continuous_iso = 125;
@@ -6396,7 +6378,6 @@ int32_t  QCameraParameters::setISOValue(const char *isoValue)
             }
             return NO_ERROR;
         }
-#endif
     }
     ALOGE("Invalid ISO value: %s",
           (isoValue == NULL) ? "NULL" : isoValue);
@@ -6820,7 +6801,7 @@ int32_t QCameraParameters::configFrameCapture(bool commitSettings)
  *==========================================================================*/
 int32_t QCameraParameters::resetFrameCapture(bool commitSettings)
 {
-    int32_t rc = NO_ERROR, i = 0;
+    int32_t rc = NO_ERROR;
     memset(&m_captureFrameConfig, 0, sizeof(cam_capture_frame_config_t));
 
     if (commitSettings) {
@@ -9484,7 +9465,11 @@ uint8_t QCameraParameters::getBurstNum()
  *==========================================================================*/
 uint32_t QCameraParameters::getJpegQuality()
 {
-    return 100;
+    int quality = getInt(KEY_JPEG_QUALITY);
+    if (quality < 0) {
+        quality = 85; // set to default quality value
+    }
+    return (uint32_t)quality;
 }
 
 /*===========================================================================
@@ -10712,11 +10697,9 @@ int32_t QCameraParameters::commitParamChanges()
  *
  * RETURN     : none
  *==========================================================================*/
-QCameraReprocScaleParam::QCameraReprocScaleParam(QCameraParameters *parent)
-  : mParent(parent),
-    mScaleEnabled(false),
+QCameraReprocScaleParam::QCameraReprocScaleParam(QCameraParameters *parent __unused)
+  : mScaleEnabled(false),
     mIsUnderScaling(false),
-    mScaleDirection(0),
     mNeedScaleCnt(0),
     mSensorSizeTblCnt(0),
     mSensorSizeTbl(NULL),
@@ -11761,7 +11744,6 @@ void QCameraParameters::setOfflineRAW()
 
    property_get("persist.camera.raw_yuv", value, "0");
    raw_yuv = atoi(value) > 0 ? true : false;
-
    property_get("persist.camera.offlineraw", value, "0");
    offlineRaw = atoi(value) > 0 ? true : false;
    if((raw_yuv || isRdiMode()) && offlineRaw){

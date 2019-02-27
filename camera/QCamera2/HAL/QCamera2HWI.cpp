@@ -36,11 +36,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <utils/Errors.h>
+#include "util/QCameraFlash.h"
 #include <utils/Trace.h>
 #include <gralloc_priv.h>
-#include <gui/Surface.h>
 #include <dlfcn.h>
-#include "util/QCameraFlash.h"
 
 #include "QCamera2HWI.h"
 #include "QCameraMem.h"
@@ -70,35 +69,35 @@ static pthread_mutex_t g_camlock = PTHREAD_MUTEX_INITIALIZER;
 volatile uint32_t gCamHalLogLevel = 1;
 
 camera_device_ops_t QCamera2HardwareInterface::mCameraOps = {
-    set_preview_window:         QCamera2HardwareInterface::set_preview_window,
-    set_callbacks:              QCamera2HardwareInterface::set_CallBacks,
-    enable_msg_type:            QCamera2HardwareInterface::enable_msg_type,
-    disable_msg_type:           QCamera2HardwareInterface::disable_msg_type,
-    msg_type_enabled:           QCamera2HardwareInterface::msg_type_enabled,
+    .set_preview_window =         QCamera2HardwareInterface::set_preview_window,
+    .set_callbacks =              QCamera2HardwareInterface::set_CallBacks,
+    .enable_msg_type =            QCamera2HardwareInterface::enable_msg_type,
+    .disable_msg_type =           QCamera2HardwareInterface::disable_msg_type,
+    .msg_type_enabled =           QCamera2HardwareInterface::msg_type_enabled,
 
-    start_preview:              QCamera2HardwareInterface::start_preview,
-    stop_preview:               QCamera2HardwareInterface::stop_preview,
-    preview_enabled:            QCamera2HardwareInterface::preview_enabled,
-    store_meta_data_in_buffers: QCamera2HardwareInterface::store_meta_data_in_buffers,
+    .start_preview =              QCamera2HardwareInterface::start_preview,
+    .stop_preview =               QCamera2HardwareInterface::stop_preview,
+    .preview_enabled =            QCamera2HardwareInterface::preview_enabled,
+    .store_meta_data_in_buffers = QCamera2HardwareInterface::store_meta_data_in_buffers,
 
-    start_recording:            QCamera2HardwareInterface::start_recording,
-    stop_recording:             QCamera2HardwareInterface::stop_recording,
-    recording_enabled:          QCamera2HardwareInterface::recording_enabled,
-    release_recording_frame:    QCamera2HardwareInterface::release_recording_frame,
+    .start_recording =            QCamera2HardwareInterface::start_recording,
+    .stop_recording =             QCamera2HardwareInterface::stop_recording,
+    .recording_enabled =          QCamera2HardwareInterface::recording_enabled,
+    .release_recording_frame =    QCamera2HardwareInterface::release_recording_frame,
 
-    auto_focus:                 QCamera2HardwareInterface::auto_focus,
-    cancel_auto_focus:          QCamera2HardwareInterface::cancel_auto_focus,
+    .auto_focus =                 QCamera2HardwareInterface::auto_focus,
+    .cancel_auto_focus =          QCamera2HardwareInterface::cancel_auto_focus,
 
-    take_picture:               QCamera2HardwareInterface::take_picture,
-    cancel_picture:             QCamera2HardwareInterface::cancel_picture,
+    .take_picture =               QCamera2HardwareInterface::take_picture,
+    .cancel_picture =             QCamera2HardwareInterface::cancel_picture,
 
-    set_parameters:             QCamera2HardwareInterface::set_parameters,
-    get_parameters:             QCamera2HardwareInterface::get_parameters,
-    put_parameters:             QCamera2HardwareInterface::put_parameters,
-    send_command:               QCamera2HardwareInterface::send_command,
+    .set_parameters =             QCamera2HardwareInterface::set_parameters,
+    .get_parameters =             QCamera2HardwareInterface::get_parameters,
+    .put_parameters =             QCamera2HardwareInterface::put_parameters,
+    .send_command =               QCamera2HardwareInterface::send_command,
 
-    release:                    QCamera2HardwareInterface::release,
-    dump:                       QCamera2HardwareInterface::dump,
+    .release =                    QCamera2HardwareInterface::release,
+    .dump =                       QCamera2HardwareInterface::dump,
 };
 
 /*===========================================================================
@@ -1168,7 +1167,7 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
     memset(&mExifParams, 0, sizeof(mm_jpeg_exif_params_t));
 
     memset(m_BackendFileName, 0, QCAMERA_MAX_FILEPATH_LENGTH);
-    
+
 #ifdef HAS_MULTIMEDIA_HINTS
     if (hw_get_module(POWER_HARDWARE_MODULE_ID, (const hw_module_t **)&m_pPowerModule)) {
         ALOGE("%s: %s module not found", __func__, POWER_HARDWARE_MODULE_ID);
@@ -1280,6 +1279,15 @@ int QCamera2HardwareInterface::openCamera()
         ALOGE("Failure: Camera already opened");
         return ALREADY_EXISTS;
     }
+
+    rc = QCameraFlash::getInstance().reserveFlashForCamera(mCameraId);
+    if (rc < 0) {
+        ALOGE("%s: Failed to reserve flash for camera id: %d",
+                __func__,
+                mCameraId);
+        return UNKNOWN_ERROR;
+    }
+
     rc = camera_open((uint8_t)mCameraId, &mCameraHandle);
     if (rc) {
         ALOGE("camera_open failed. rc = %d, mCameraHandle = %p", rc, mCameraHandle);
@@ -1401,6 +1409,13 @@ int QCamera2HardwareInterface::closeCamera()
 
     rc = mCameraHandle->ops->close_camera(mCameraHandle->camera_handle);
     mCameraHandle = NULL;
+
+    if (QCameraFlash::getInstance().releaseFlashFromCamera(mCameraId) != 0) {
+        CDBG("%s: Failed to release flash for camera id: %d",
+                __func__,
+                mCameraId);
+    }
+
     ALOGI("[KPI Perf] %s: X PROFILE_CLOSE_CAMERA camera id %d, rc: %d",
         __func__, mCameraId, rc);
 
@@ -1640,19 +1655,15 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
             }
 
             bufferCnt += mParameters.getNumOfExtraBuffersForVideo();
-            //if its 4K encoding usecase and power save feature enabled, then add extra buffer
+            //if its 4K encoding usecase, then add extra buffer
             cam_dimension_t dim;
             mParameters.getStreamDimension(CAM_STREAM_TYPE_VIDEO, dim);
             if (is4k2kResolution(&dim)) {
-                 property_get("vidc.debug.perf.mode", value, "0");
-                 bool isPwrSavEnabled = (atoi(value) == 2);
-                 if (isPwrSavEnabled) {
-                     //get additional buffer count
-                     property_get("vidc.enc.dcvs.extra-buff-count", value, "0");
-                     bufferCnt += atoi(value);
-                 }
+                 //get additional buffer count
+                 property_get("vidc.enc.dcvs.extra-buff-count", value, "0");
+                 bufferCnt += atoi(value);
             }
-            ALOGI("Buffer count is %d width / height (%d/%d) ", bufferCnt, dim.width, dim.height);
+            ALOGI("Buffer count is %d, width / height (%d/%d) ", bufferCnt, dim.width, dim.height);
         }
         break;
     case CAM_STREAM_TYPE_METADATA:
@@ -1752,15 +1763,14 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(
         {
             if (isNoDisplayMode()) {
                 mem = new QCameraStreamMemory(mGetMemory,
-			mCallbackCookie,
+                        mCallbackCookie,
                         bCachedMem,
                         (bPoolMem) ? &m_memoryPool : NULL,
                         stream_type);
             } else {
                 cam_dimension_t dim;
-                QCameraGrallocMemory *grallocMemory = NULL;
-
-                grallocMemory = new QCameraGrallocMemory(mGetMemory, mCallbackCookie);
+                QCameraGrallocMemory *grallocMemory =
+                    new QCameraGrallocMemory(mGetMemory, mCallbackCookie);
 
                 mParameters.getStreamDimension(stream_type, dim);
                 if (grallocMemory)
@@ -2020,7 +2030,7 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
             mParameters.getHfrFps(pFpsRange);
             streamInfo->user_buf_info.frameInterval =
                     (long)((1000/pFpsRange.video_max_fps) * 1000);
-            CDBG_HIGH("%s: Video Batch Count = %d, interval = %d", __func__,
+            CDBG_HIGH("%s: Video Batch Count = %d, interval = %ld", __func__,
                     streamInfo->user_buf_info.frame_buf_cnt,
                     streamInfo->user_buf_info.frameInterval);
         }
@@ -2103,7 +2113,6 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamUserBuf(
 {
     int rc = NO_ERROR;
     QCameraMemory *mem = NULL;
-    int bufferCnt = 0;
     int size = 0;
 
     if (streamInfo->streaming_mode != CAM_STREAMING_MODE_BATCH) {
@@ -6229,17 +6238,6 @@ int32_t QCamera2HardwareInterface::stopChannel(qcamera_ch_type_enum_t ch_type)
     return rc;
 }
 
-void QCamera2HardwareInterface::enableDisplayFrame()
-{
-mParameters.setDisplayFrame(true);
-}
-
-void QCamera2HardwareInterface::disableDisplayFrame()
-{
-mParameters.setDisplayFrame(false);
-}
-
-
 /*===========================================================================
  * FUNCTION   : preparePreview
  *
@@ -6419,6 +6417,7 @@ int32_t QCamera2HardwareInterface::processFaceDetectionResult(cam_face_detection
         faceResultSize = sizeof(camera_frame_metadata_t);
         faceResultSize += sizeof(camera_face_t) * MAX_ROI;
     }else if(fd_type == QCAMERA_FD_SNAPSHOT){
+#ifndef VANILLA_HAL
         // fd for snapshot frames
         //check if face is detected in this frame
         if(fd_data->num_faces_detected > 0){
@@ -6428,6 +6427,7 @@ int32_t QCamera2HardwareInterface::processFaceDetectionResult(cam_face_detection
             //no face
             data_len = 0;
         }
+#endif
         faceResultSize = 1 *sizeof(int)    //meta data type
                        + 1 *sizeof(int)    // meta data len
                        + data_len;         //data
@@ -6785,22 +6785,21 @@ int QCamera2HardwareInterface::calcThermalLevel(
             // Set lowest min FPS for now
             adjustedRange.min_fps = minFPS/1000.0f;
             adjustedRange.max_fps = minFPS/1000.0f;
-			#ifdef VENDOR_EDIT
+#ifdef VENDOR_EDIT
             for (size_t i = 0; i < gCamCaps[mCameraId]->hal3_fps_ranges_tbl_cnt; i++) {
                 if (gCamCaps[mCameraId]->hal3_fps_ranges_tbl[i].min_fps < adjustedRange.min_fps) {
                     adjustedRange.min_fps = gCamCaps[mCameraId]->hal3_fps_ranges_tbl[i].min_fps;
                     adjustedRange.max_fps = adjustedRange.min_fps;
                 }
             }
-			#else
+#else
             for (size_t i = 0; i < gCamCaps[mCameraId]->fps_ranges_tbl_cnt; i++) {
                 if (gCamCaps[mCameraId]->fps_ranges_tbl[i].min_fps < adjustedRange.min_fps) {
                     adjustedRange.min_fps = gCamCaps[mCameraId]->fps_ranges_tbl[i].min_fps;
                     adjustedRange.max_fps = adjustedRange.min_fps;
                 }
             }
-
-			#endif
+#endif
             skipPattern = MAX_SKIP;
             adjustedRange.video_min_fps = adjustedRange.min_fps;
             adjustedRange.video_max_fps = adjustedRange.max_fps;
@@ -7830,7 +7829,6 @@ void QCameraPerfLock::lock_init()
 {
     const char *rc;
     char value[PROPERTY_VALUE_MAX];
-    int len;
     property_get("persist.camera.perflock.enable", value, "0");
     mPerfLockEnable = atoi(value);
     if (mPerfLockEnable) {
