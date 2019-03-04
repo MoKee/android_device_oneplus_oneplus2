@@ -162,10 +162,6 @@ PRODUCT_PACKAGES += \
     izat.conf \
     sap.conf
 
-# HIDL
-PRODUCT_PACKAGES += \
-    android.hidl.manager@1.0-java
-
 # IPv6
 PRODUCT_PACKAGES += \
     ebtables \
@@ -283,9 +279,6 @@ PRODUCT_PACKAGES += \
 # USB
 PRODUCT_PACKAGES += \
     android.hardware.usb@1.0-service.basic
-
-PRODUCT_PACKAGES += \
-    com.android.future.usb.accessory
 
 # Vibrator
 PRODUCT_PACKAGES += \
