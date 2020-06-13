@@ -66,4 +66,4 @@
 /(system/vendor|vendor)/bin/timekeep                                    u:object_r:timekeep_exec:s0
 
 # Touch features
-/(vendor|system/vendor)/bin/hw/vendor\.lineage\.touch@1\.0-service\.oneplus2     u:object_r:hal_lineage_touch_default_exec:s0
+/(vendor|system/vendor)/bin/hw/vendor\.mokee\.touch@1\.0-service\.oneplus2     u:object_r:hal_mokee_touch_default_exec:s0

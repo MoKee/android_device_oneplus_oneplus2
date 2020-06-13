@@ -134,4 +134,4 @@ ro.qc.sdk.camera.facialproc=false
 ro.surface_flinger.max_frame_buffer_acquired_buffers=3
 
 # Vendor security patch level
-ro.lineage.build.vendor_security_patch=2017-10-01
+ro.mk.build.vendor_security_patch=2017-10-01
