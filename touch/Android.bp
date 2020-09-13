@@ -27,7 +27,6 @@ cc_binary {
         "libbase",
         "libbinder",
         "libhidlbase",
-        "libhidltransport",
         "libutils",
         "vendor.mokee.touch@1.0",
     ],
